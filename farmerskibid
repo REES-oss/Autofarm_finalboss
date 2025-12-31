@@ -63,7 +63,7 @@ if not mainPlayer then return end
 local isMain = LocalPlayer.Name == getgenv().mainName
 
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait()
+    task.wait(0.1)
     if isMain then
         tp(MAIN_CFRAME)
     else
@@ -84,6 +84,12 @@ if isMain then
             end
             altSignal = false
             local char = getChar()
+            if not char or not char.Parent then
+                LocalPlayer.CharacterAdded:Wait()
+                char = getChar()
+            end
+            tp(MAIN_CFRAME)
+            task.wait(0.2)
             local tool = char:FindFirstChild("Scatter") or LocalPlayer.Backpack:FindFirstChild("Scatter")
             if tool then
                 tool.Parent = char
