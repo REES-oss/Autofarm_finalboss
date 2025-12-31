@@ -1,22 +1,11 @@
 getgenv().mainName = getgenv().mainName or ""
 
 local Players = game:GetService("Players")
-local RS = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 local MAIN_CFRAME = CFrame.new(1063, 406, 23006)
 local ALT_CFRAME  = CFrame.new(1063, 406, 22996)
-
---------------------------------------------------
--- Ensure AltResetEvent exists
---------------------------------------------------
-local AltResetEvent = RS:FindFirstChild("AltResetEvent")
-if not AltResetEvent then
-    AltResetEvent = Instance.new("RemoteEvent")
-    AltResetEvent.Name = "AltResetEvent"
-    AltResetEvent.Parent = RS
-end
 
 --------------------------------------------------
 -- Anti-AFK
@@ -46,69 +35,89 @@ end)
 --------------------------------------------------
 -- Utilities
 --------------------------------------------------
-local function getChar()
-    return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local function getChar(p)
+    return p.Character or p.CharacterAdded:Wait()
 end
 
-local function getRoot()
-    return getChar():WaitForChild("HumanoidRootPart")
+local function getRoot(p)
+    return getChar(p):WaitForChild("HumanoidRootPart")
 end
 
-local function tp(cf)
-    getRoot().CFrame = cf
+local function tp(p, cf)
+    getRoot(p).CFrame = cf
 end
 
-local function resetChar()
-    getChar():WaitForChild("Humanoid").Health = 0
-end
-
-local function getPlayerByName(name)
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Name == name then
-            return p
-        end
-    end
+local function resetChar(p)
+    getChar(p):WaitForChild("Humanoid").Health = 0
 end
 
 --------------------------------------------------
 -- Identify MAIN
 --------------------------------------------------
-local mainPlayer = getPlayerByName(getgenv().mainName)
-if not mainPlayer then return end
-local isMain = LocalPlayer == mainPlayer
+local mainPlayer
+for _, p in ipairs(Players:GetPlayers()) do
+    if p.Name == getgenv().mainName then
+        mainPlayer = p
+        break
+    end
+end
+if not mainPlayer then
+    warn("MAIN not found")
+    return
+end
 
--- Character added teleport
+local isMain = (LocalPlayer == mainPlayer)
+local queue = {} -- queue for ALT signals
+local processing = false
+
+-- Teleport on spawn
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait()
-    tp(isMain and MAIN_CFRAME or ALT_CFRAME)
+    tp(LocalPlayer, isMain and MAIN_CFRAME or ALT_CFRAME)
 end)
 
 --------------------------------------------------
--- MAIN LOGIC (multi-ALT support)
+-- MAIN LOGIC
 --------------------------------------------------
 if isMain then
-    local queue = {}       -- Queue for ALT signals
-    local processing = false
+    local hooked = {}
 
-    -- Listen for any ALT signal
-    AltResetEvent.OnClientEvent:Connect(function(fromPlayer)
-        if fromPlayer ~= LocalPlayer.Name then
-            table.insert(queue, fromPlayer)
+    -- Hook ALT death
+    local function hookAlt(player)
+        if player == mainPlayer or hooked[player] then return end
+        hooked[player] = true
+
+        local function hookChar(char)
+            local hum = char:WaitForChild("Humanoid")
+            hum.Died:Connect(function()
+                table.insert(queue, player)
+            end)
         end
-    end)
 
-    -- Process queue sequentially
+        if player.Character then
+            hookChar(player.Character)
+        end
+        player.CharacterAdded:Connect(hookChar)
+    end
+
+    -- Hook existing and future players
+    for _, p in ipairs(Players:GetPlayers()) do
+        hookAlt(p)
+    end
+    Players.PlayerAdded:Connect(hookAlt)
+
+    -- Process queue
     task.spawn(function()
         while true do
             if not processing and #queue > 0 then
                 processing = true
-                table.remove(queue, 1)  -- Remove first ALT signal
+                table.remove(queue, 1)
 
                 -- Teleport MAIN
-                tp(MAIN_CFRAME)
+                tp(LocalPlayer, MAIN_CFRAME)
 
                 -- Activate Scatter tool
-                local char = getChar()
+                local char = getChar(LocalPlayer)
                 local tool = char:FindFirstChild("Scatter") or LocalPlayer.Backpack:FindFirstChild("Scatter")
                 if tool then
                     tool.Parent = char
@@ -118,10 +127,10 @@ if isMain then
                 end
 
                 -- Reset MAIN
-                resetChar()
+                resetChar(LocalPlayer)
                 LocalPlayer.CharacterAdded:Wait()
-                tp(MAIN_CFRAME)
-                task.wait(0.6)
+                tp(LocalPlayer, MAIN_CFRAME)
+                task.wait(0.5)
                 processing = false
             end
             task.wait(0.05)
@@ -129,18 +138,16 @@ if isMain then
     end)
 
 --------------------------------------------------
--- ALT LOGIC (loop + signal MAIN)
+-- ALT LOGIC
 --------------------------------------------------
 else
     task.spawn(function()
         while true do
-            tp(ALT_CFRAME)
+            tp(LocalPlayer, ALT_CFRAME)
             task.wait(0.2)
-            resetChar()
-            -- Signal MAIN
-            AltResetEvent:FireServer(LocalPlayer.Name)
+            resetChar(LocalPlayer)
             LocalPlayer.CharacterAdded:Wait()
-            tp(ALT_CFRAME)
+            tp(LocalPlayer, ALT_CFRAME)
             task.wait(0.6)
         end
     end)
