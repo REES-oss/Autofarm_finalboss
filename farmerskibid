@@ -20,20 +20,6 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-task.spawn(function()
-    while task.wait(0.25) do
-        local char = LocalPlayer.Character
-        if char then
-            local comm = char:FindFirstChild("Communicate")
-            if comm then
-                pcall(function()
-                    comm:FireServer({Goal = "Emote Spin"})
-                end)
-            end
-        end
-    end
-end)
-
 local function getChar()
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 end
@@ -43,11 +29,18 @@ local function getRoot()
 end
 
 local function tp(cf)
-    getRoot().CFrame = cf
+    local root = getRoot()
+    if root then
+        root.CFrame = cf
+    end
 end
 
 local function resetChar()
-    getChar():WaitForChild("Humanoid").Health = 0
+    local char = getChar()
+    local humanoid = char:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.Health = 0
+    end
 end
 
 local function getPlayerByName(name)
@@ -79,24 +72,27 @@ if isMain then
 
     task.spawn(function()
         while true do
+            local char = getChar()
+            tp(MAIN_CFRAME)
+
             while not altSignal do
                 task.wait(0.1)
             end
             altSignal = false
-            local char = getChar()
-            if not char or not char.Parent then
-                LocalPlayer.CharacterAdded:Wait()
-                char = getChar()
-            end
+
+            char = getChar()
             tp(MAIN_CFRAME)
-            task.wait(0.2)
-            local tool = char:FindFirstChild("Scatter") or LocalPlayer.Backpack:FindFirstChild("Scatter")
+
+            local tool = LocalPlayer.Backpack:FindFirstChild("Scatter") or char:FindFirstChild("Scatter")
             if tool then
                 tool.Parent = char
-                task.wait(0.15)
-                tool:Activate()
-                task.wait(0.5)
+                task.wait(0.2) -- small wait to ensure tool is recognized
+                pcall(function()
+                    tool:Activate()
+                end)
+                task.wait(0.5) -- wait to ensure tool action completes
             end
+
             resetChar()
             LocalPlayer.CharacterAdded:Wait()
             tp(MAIN_CFRAME)
