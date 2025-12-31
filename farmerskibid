@@ -55,7 +55,7 @@ local mainPlayer = getPlayerByName(getgenv().mainName)
 if not mainPlayer then return end
 local isMain = LocalPlayer.Name == getgenv().mainName
 
--- Teleport immediately on spawn
+-- Teleport on spawn
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.1)
     if isMain then
@@ -66,33 +66,35 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 if isMain then
-    local altSignal = false
+    local altQueue = 0
     AltResetEvent.OnClientEvent:Connect(function()
-        altSignal = true
+        altQueue += 1
     end)
 
     task.spawn(function()
         while true do
-            tp(MAIN_CFRAME) -- constantly ensure main is at the correct position
+            tp(MAIN_CFRAME) -- keep main at correct position
 
-            -- wait for alt signal
-            repeat task.wait(0.1) until altSignal
-            altSignal = false
+            if altQueue > 0 then
+                altQueue -= 1
 
-            local char = getChar()
-            tp(MAIN_CFRAME)
+                local char = getChar()
+                tp(MAIN_CFRAME)
 
-            -- equip and activate Scatter
-            local tool = char:FindFirstChild("Scatter") or LocalPlayer.Backpack:FindFirstChild("Scatter")
-            if tool then
-                tool.Parent = char
-                task.wait(0.1)
-                pcall(tool.Activate, tool)
-                task.wait(0.3)
+                -- Equip and use Scatter
+                local tool = char:FindFirstChild("Scatter") or LocalPlayer.Backpack:FindFirstChild("Scatter")
+                if tool then
+                    tool.Parent = char
+                    task.wait(0.2)
+                    pcall(tool.Activate, tool)
+                    task.wait(0.3)
+                end
+
+                resetChar()
+                task.wait(0.2)
             end
 
-            resetChar()
-            task.wait(0.2)
+            task.wait(0.1)
         end
     end)
 else
