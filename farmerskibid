@@ -72,31 +72,29 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 if isMain then
-    local altResetSignal = false
+    local altSignal = false
     AltResetEvent.OnClientEvent:Connect(function()
-        altResetSignal = true
+        altSignal = true
     end)
 
     task.spawn(function()
         while true do
-            tp(MAIN_CFRAME)
-            task.wait(0.2)
-            while not altResetSignal do
+            while not altSignal do
                 task.wait(0.1)
             end
-            altResetSignal = false
+            altSignal = false
             local char = getChar()
             local tool = char:FindFirstChild("Scatter") or LocalPlayer.Backpack:FindFirstChild("Scatter")
             if tool then
                 tool.Parent = char
                 task.wait(0.15)
                 tool:Activate()
-                task.wait(3)
+                task.wait(0.5)
             end
             resetChar()
             LocalPlayer.CharacterAdded:Wait()
             tp(MAIN_CFRAME)
-            task.wait(0.6)
+            task.wait(0.2)
         end
     end)
 else
@@ -108,7 +106,7 @@ else
             AltResetEvent:FireServer()
             LocalPlayer.CharacterAdded:Wait()
             tp(ALT_CFRAME)
-            task.wait(0.6)
+            task.wait(0.2)
         end
     end)
 end
